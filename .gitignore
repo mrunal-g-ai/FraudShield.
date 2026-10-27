@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment Variables
+.env
+.env.local
+*.env
+
+# SQLite
+*.sqlite3
+*.db
+backend/app/database/*.db
+
+# Datasets (large files)
+backend/data/*.csv
+!backend/data/sample_template.csv
+!backend/data/sample_test_batch.csv
+
+# Models (except lightweight metadata if desired, but keep joblib artifacts ignored if large)
+*.joblib
+!backend/models/model_metrics.json
+
+# Node & Frontend
+node_modules/
+frontend/dist/
+frontend/dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
