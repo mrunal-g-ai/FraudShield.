@@ -245,6 +245,7 @@ def get_transactions(
     page: int = Query(1, ge=1),
     page_size: int = Query(15, ge=5, le=100),
     risk_level: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
@@ -253,8 +254,16 @@ def get_transactions(
         page=page,
         page_size=page_size,
         risk_level=risk_level,
+        source=source,
         search=search
     )
+
+
+@router.delete("/transactions")
+def delete_all_transactions(db: Session = Depends(get_db)):
+    from backend.app.services.transaction_service import clear_all_transactions
+    deleted_count = clear_all_transactions(db)
+    return {"message": f"Successfully cleared {deleted_count} transaction audit records.", "deleted_count": deleted_count}
 
 
 @router.get("/transactions/{txn_id}", response_model=TransactionDetailResponse)

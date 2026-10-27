@@ -66,17 +66,25 @@ export async function fetchTransactions(
   page: number = 1,
   pageSize: number = 15,
   riskLevel?: string,
-  search?: string
+  search?: string,
+  source?: string
 ): Promise<PaginatedTransactionsResponse> {
   const params = new URLSearchParams({
     page: String(page),
     page_size: String(pageSize),
   });
   if (riskLevel && riskLevel !== 'ALL') params.append('risk_level', riskLevel);
+  if (source && source !== 'ALL') params.append('source', source);
   if (search && search.trim()) params.append('search', search.trim());
 
   const res = await fetch(`${API_BASE}/transactions?${params.toString()}`);
   if (!res.ok) throw new Error(`Failed to fetch transactions: ${res.statusText}`);
+  return res.json();
+}
+
+export async function clearTransactions(): Promise<{ message: string; deleted_count: number }> {
+  const res = await fetch(`${API_BASE}/transactions`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to clear transaction log');
   return res.json();
 }
 

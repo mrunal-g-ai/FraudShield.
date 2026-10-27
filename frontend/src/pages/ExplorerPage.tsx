@@ -1,43 +1,47 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Search,
-  Filter,
   Download,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
-  SlidersHorizontal,
   TableProperties,
-  ArrowUpDown,
+  Trash2,
+  AlertCircle,
+  SearchCheck,
   FileSpreadsheet,
+  X,
 } from 'lucide-react';
 import { Header } from '../components/Header';
 import { RiskBadge } from '../components/RiskBadge';
 import { TransactionDetailModal } from '../components/TransactionDetailModal';
-import { fetchTransactions } from '../services/api';
-import {
-  PaginatedTransactionsResponse,
-  TransactionRecord,
-  RiskLevel,
-} from '../types';
+import { fetchTransactions, clearTransactions } from '../services/api';
+import { PaginatedTransactionsResponse, TransactionRecord } from '../types';
 
 export const ExplorerPage: React.FC = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState<PaginatedTransactionsResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   // Filters & Pagination
   const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(15);
+  const [pageSize] = useState<number>(15);
   const [riskFilter, setRiskFilter] = useState<string>('ALL');
+  const [sourceFilter, setSourceFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedTxn, setSelectedTxn] = useState<TransactionRecord | null>(null);
+
+  // Confirmation modal for clearing audit log
+  const [showClearModal, setShowClearModal] = useState<boolean>(false);
+  const [clearing, setClearing] = useState<boolean>(false);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetchTransactions(page, pageSize, riskFilter, searchQuery);
+      const res = await fetchTransactions(page, pageSize, riskFilter, searchQuery, sourceFilter);
       setData(res);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch transaction logs.');
@@ -48,12 +52,33 @@ export const ExplorerPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [page, pageSize, riskFilter]);
+  }, [page, pageSize, riskFilter, sourceFilter]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
     loadData();
+  };
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setRiskFilter('ALL');
+    setSourceFilter('ALL');
+    setPage(1);
+  };
+
+  const handleConfirmClear = async () => {
+    try {
+      setClearing(true);
+      await clearTransactions();
+      setShowClearModal(false);
+      setPage(1);
+      await loadData();
+    } catch (e: any) {
+      alert(e.message || 'Failed to clear transactions');
+    } finally {
+      setClearing(false);
+    }
   };
 
   const handleExportCsv = () => {
@@ -96,8 +121,8 @@ export const ExplorerPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-fintech-bg pb-12">
       <Header
-        title="Transaction Audit Explorer"
-        description="Filter, inspect, and trace historical transaction scores and PCA feature vectors persisted in the SQLite audit log."
+        title="Transaction Audit Log & Verification Explorer"
+        description="Search, filter, and review historical inference results and PCA anomaly signatures stored in SQLite."
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -107,6 +132,14 @@ export const ExplorerPage: React.FC = () => {
             >
               <Download className="w-3.5 h-3.5 text-slate-500" />
               <span>Export CSV</span>
+            </button>
+            <button
+              onClick={() => setShowClearModal(true)}
+              disabled={!data || data.total === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-rose-200 hover:bg-rose-50 text-rose-700 text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Clear Log</span>
             </button>
             <button
               onClick={loadData}
@@ -119,9 +152,9 @@ export const ExplorerPage: React.FC = () => {
         }
       />
 
-      <main className="max-w-7xl mx-auto px-8 pt-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-8 pt-6 space-y-6">
         {/* Search & Filter Toolbar */}
-        <div className="bg-white border border-fintech-border rounded-lg p-4 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="bg-white border border-fintech-border rounded-lg p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
           {/* Search Box */}
           <form onSubmit={handleSearchSubmit} className="relative w-full md:w-80">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -135,9 +168,9 @@ export const ExplorerPage: React.FC = () => {
           </form>
 
           {/* Filter Pills */}
-          <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">
-              Risk Filter:
+              Risk:
             </span>
             {['ALL', 'HIGH', 'MEDIUM', 'LOW'].map((lvl) => (
               <button
@@ -147,13 +180,34 @@ export const ExplorerPage: React.FC = () => {
                   setRiskFilter(lvl);
                   setPage(1);
                 }}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
                   riskFilter === lvl
                     ? 'bg-fintech-accent text-white shadow-xs'
                     : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
                 }`}
               >
                 {lvl === 'ALL' ? 'All Tiers' : `${lvl.charAt(0) + lvl.slice(1).toLowerCase()} Risk`}
+              </button>
+            ))}
+
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mx-1 pl-2 border-l border-slate-200">
+              Source:
+            </span>
+            {['ALL', 'SINGLE', 'BATCH'].map((src) => (
+              <button
+                key={src}
+                type="button"
+                onClick={() => {
+                  setSourceFilter(src);
+                  setPage(1);
+                }}
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  sourceFilter === src
+                    ? 'bg-slate-800 text-white shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+                }`}
+              >
+                {src === 'ALL' ? 'All' : src.charAt(0) + src.slice(1).toLowerCase()}
               </button>
             ))}
           </div>
@@ -170,9 +224,23 @@ export const ExplorerPage: React.FC = () => {
             <div className="p-16 text-center">
               <TableProperties className="w-8 h-8 text-slate-400 mx-auto mb-2" />
               <h4 className="text-sm font-semibold text-slate-800">No Matching Transactions</h4>
-              <p className="text-xs text-fintech-muted max-w-sm mx-auto mt-1">
-                No stored transactions match the query parameters or risk filter.
+              <p className="text-xs text-fintech-muted max-w-sm mx-auto mt-1 mb-4">
+                No stored transactions match your active query or filters.
               </p>
+              <div className="flex justify-center gap-2">
+                <button
+                  onClick={handleResetFilters}
+                  className="px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-medium rounded-md hover:bg-slate-200 transition-colors"
+                >
+                  Clear All Filters
+                </button>
+                <button
+                  onClick={() => navigate('/predict')}
+                  className="px-3 py-1.5 bg-fintech-accent text-white text-xs font-medium rounded-md hover:bg-fintech-accent-hover transition-colors"
+                >
+                  Analyze Transaction
+                </button>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -186,7 +254,7 @@ export const ExplorerPage: React.FC = () => {
                     <th className="px-6 py-3">Source</th>
                     <th className="px-6 py-3">Model Risk Score</th>
                     <th className="px-6 py-3">Assessment</th>
-                    <th className="px-6 py-3 text-right">Inspector</th>
+                    <th className="px-6 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-fintech-border text-xs">
@@ -227,7 +295,7 @@ export const ExplorerPage: React.FC = () => {
                           }}
                           className="text-xs text-fintech-accent font-medium hover:underline"
                         >
-                          View PCA Vectors
+                          Inspect Vectors
                         </button>
                       </td>
                     </tr>
@@ -271,6 +339,43 @@ export const ExplorerPage: React.FC = () => {
           )}
         </div>
       </main>
+
+      {/* Confirmation Modal for Clearing Transactions */}
+      {showClearModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-lg border border-fintech-border shadow-xl w-full max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Clear Transaction Audit Log?</h3>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  This will delete all persisted transaction records from the SQLite database. This action is designed for testing and demo resets.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowClearModal(false)}
+                className="px-3.5 py-1.5 rounded-md border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClear}
+                disabled={clearing}
+                className="px-3.5 py-1.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {clearing ? 'Clearing...' : 'Yes, Clear All Records'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Slide-over Transaction Detail Modal */}
       <TransactionDetailModal

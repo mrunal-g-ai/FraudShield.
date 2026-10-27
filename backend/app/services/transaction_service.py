@@ -81,6 +81,7 @@ def get_transactions_paginated(
     page: int = 1,
     page_size: int = 15,
     risk_level: Optional[str] = None,
+    source: Optional[str] = None,
     search: Optional[str] = None
 ) -> PaginatedTransactionsResponse:
     """Retrieves paginated and filtered transaction history with aggregate metrics."""
@@ -88,6 +89,9 @@ def get_transactions_paginated(
 
     if risk_level and risk_level.upper() != "ALL":
         query = query.filter(TransactionRecord.risk_level == risk_level.upper())
+
+    if source and source.upper() != "ALL":
+        query = query.filter(TransactionRecord.source == source.upper())
 
     if search:
         search_pattern = f"%{search.strip()}%"
@@ -145,6 +149,13 @@ def get_transactions_paginated(
             "fraud_detected": high_risk_count,
         }
     )
+
+
+def clear_all_transactions(db: Session) -> int:
+    """Removes all stored transaction records for audit reset."""
+    count = db.query(TransactionRecord).delete()
+    db.commit()
+    return count
 
 
 def get_transaction_by_id(db: Session, txn_id: str) -> Optional[TransactionDetailResponse]:

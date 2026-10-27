@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   SearchCheck,
   RotateCcw,
@@ -26,6 +27,7 @@ import {
 } from '../types';
 
 export const SinglePredictPage: React.FC = () => {
+  const navigate = useNavigate();
   const [presets, setPresets] = useState<TransactionPreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string>('legit_grocery');
   const [threshold, setThreshold] = useState<number>(0.50);
@@ -402,6 +404,24 @@ export const SinglePredictPage: React.FC = () => {
               <div className="p-3 bg-blue-50/50 border border-blue-200 rounded text-[11px] text-blue-900 flex items-start gap-2">
                 <Info className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
                 <p className="leading-normal">{result.disclaimer}</p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/transactions?search=${encodeURIComponent(result.transaction_id)}`)}
+                  className="flex-1 py-2 px-3 bg-slate-900 hover:bg-black text-white text-xs font-semibold rounded-md transition-colors text-center"
+                >
+                  View in Audit Log
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="px-3.5 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium rounded-md transition-colors"
+                >
+                  Analyze New
+                </button>
               </div>
             </div>
           ) : (
